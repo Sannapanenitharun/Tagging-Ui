@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ProviderBadge } from "@/components/ProviderBadge";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
+import { useToast } from "@/components/ui/Toast";
 import { getSessionStatus, listAwsResources, listGcpResources } from "@/lib/api-client";
 import type { CloudResource, SessionStatus } from "@/lib/types";
 
@@ -34,9 +35,13 @@ export default function DashboardPage() {
   const [status, setStatus] = useState<SessionStatus | null>(null);
   const [stats, setStats] = useState<Record<string, Stats>>({});
   const [loading, setLoading] = useState(true);
+  const [timedOut, setTimedOut] = useState(false);
+  const { push } = useToast();
 
-  useEffect(() => {
-    (async () => {
+  const load = useCallback(async () => {
+    setLoading(true);
+    setTimedOut(false);
+    try {
       const s = await getSessionStatus();
       setStatus(s);
 
@@ -49,9 +54,23 @@ export default function DashboardPage() {
       if (awsResult) next.aws = computeStats(awsResult.resources);
       if (gcpResult) next.gcp = computeStats(gcpResult.resources);
       setStats(next);
+    } catch (err) {
+      push({ kind: "error", title: "Could not load dashboard", description: (err as Error).message });
+    } finally {
       setLoading(false);
-    })();
-  }, []);
+    }
+  }, [push]);
+
+  useEffect(() => {
+    // Belt-and-suspenders: load() always resolves loading via finally, but if
+    // anything upstream (network stack, browser extension, stale HMR client)
+    // ever leaves the request hanging with no response at all, this timer
+    // still gives the user a visible way out instead of an endless spinner.
+    const timer = setTimeout(() => setTimedOut(true), 8000);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load().finally(() => clearTimeout(timer));
+    return () => clearTimeout(timer);
+  }, [load]);
 
   const combined = Object.values(stats).reduce<Stats>(
     (acc, s) => ({
@@ -74,8 +93,18 @@ export default function DashboardPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center gap-2 py-12 text-[var(--muted)]">
-          <Spinner /> Loading...
+        <div className="flex flex-col items-center gap-3 py-12 text-[var(--muted)]">
+          <div className="flex items-center gap-2">
+            <Spinner /> Loading...
+          </div>
+          {timedOut && (
+            <div className="flex flex-col items-center gap-2">
+              <p className="text-sm">This is taking longer than expected.</p>
+              <Button variant="secondary" size="sm" onClick={load}>
+                Retry
+              </Button>
+            </div>
+          )}
         </div>
       ) : !status?.aws && !status?.gcp ? (
         <div className="rounded-lg border border-dashed border-[var(--border)] p-8 text-center">

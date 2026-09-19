@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "./ui/Button";
 import { Field, Input } from "./ui/Input";
+import { ErrorPanel } from "./ui/ErrorPanel";
 import { useToast } from "./ui/Toast";
 import { connectGcp, ApiRequestError } from "@/lib/api-client";
 import type { GcpConnectionSummary } from "@/lib/types";
@@ -11,6 +12,7 @@ export function GcpConnectForm({ onConnected }: { onConnected: (summary: GcpConn
   const [serviceAccountJson, setServiceAccountJson] = useState("");
   const [projectId, setProjectId] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { push } = useToast();
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -23,6 +25,7 @@ export function GcpConnectForm({ onConnected }: { onConnected: (summary: GcpConn
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
+    setError(null);
     try {
       const summary = await connectGcp({ serviceAccountJson, projectId: projectId.trim() || undefined });
       onConnected(summary);
@@ -30,6 +33,7 @@ export function GcpConnectForm({ onConnected }: { onConnected: (summary: GcpConn
       setServiceAccountJson("");
     } catch (err) {
       const message = err instanceof ApiRequestError ? (err.details ?? err.message) : "Connection failed.";
+      setError(message);
       push({ kind: "error", title: "GCP connection failed", description: message });
     } finally {
       setBusy(false);
@@ -63,6 +67,7 @@ export function GcpConnectForm({ onConnected }: { onConnected: (summary: GcpConn
         list resources, and per-service roles (e.g. <code>roles/compute.instanceAdmin.v1</code>,{" "}
         <code>roles/storage.admin</code>) to edit labels. See the README for a suggested custom role.
       </p>
+      {error && <ErrorPanel title="GCP rejected this connection" message={error} />}
       <Button type="submit" variant="primary" disabled={busy || !serviceAccountJson} className="w-full justify-center">
         {busy ? "Connecting..." : "Connect GCP project"}
       </Button>
