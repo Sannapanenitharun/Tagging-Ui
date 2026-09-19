@@ -88,7 +88,7 @@ export default function DashboardPage() {
       <div>
         <h1 className="text-xl font-semibold text-[var(--foreground)]">Dashboard</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Tag coverage across your connected clouds. Fix gaps from the Resources view.
+          Tag coverage across your connected clouds. Fix gaps from the Tagging view.
         </p>
       </div>
 
@@ -168,8 +168,8 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <Link href="/resources">
-            <Button variant="primary">Open Resources</Button>
+          <Link href="/tagging">
+            <Button variant="primary">Open Tagging</Button>
           </Link>
         </>
       )}

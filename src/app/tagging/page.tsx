@@ -164,7 +164,7 @@ export default function ResourcesPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-[var(--foreground)]">Resources</h1>
+        <h1 className="text-xl font-semibold text-[var(--foreground)]">Tagging</h1>
         <Button variant="secondary" size="sm" onClick={loadAll}>
           Refresh
         </Button>

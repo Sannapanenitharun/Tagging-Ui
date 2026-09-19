@@ -7,7 +7,7 @@ import { ThemeToggle } from "./ThemeToggle";
 
 const NAV = [
   { href: "/", label: "Dashboard", icon: "▦" },
-  { href: "/resources", label: "Resources", icon: "▤" },
+  { href: "/tagging", label: "Tagging", icon: "▤" },
   { href: "/connect", label: "Connections", icon: "⇄" },
 ];
 

@@ -47,7 +47,7 @@ src/
   app/
     api/aws/...               Route handlers: connect, disconnect, resources, tags
     api/gcp/...               Same shape for GCP
-    connect/, resources/      Pages
+    connect/, tagging/        Pages
   components/                 UI (resource table, tag editor drawer, bulk drawer, forms, ...)
 ```
 
