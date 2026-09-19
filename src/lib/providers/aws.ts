@@ -3,7 +3,6 @@ import {
   GetResourcesCommand,
   TagResourcesCommand,
   UntagResourcesCommand,
-  GetTagKeysCommand,
   type TagFilter,
 } from "@aws-sdk/client-resource-groups-tagging-api";
 import { STSClient, GetCallerIdentityCommand } from "@aws-sdk/client-sts";
@@ -156,10 +155,4 @@ export async function untagAwsResources(c: AwsCredentials, resourceArns: string[
     new UntagResourcesCommand({ ResourceARNList: resourceArns, TagKeys: tagKeys })
   );
   return toBulkResult(resourceArns, result.FailedResourcesMap as Record<string, { ErrorMessage?: string; ErrorCode?: string }>);
-}
-
-/** Best-effort tag key suggestions for autocomplete; first page only. */
-export async function listAwsTagKeys(c: AwsCredentials): Promise<string[]> {
-  const result = await taggingClient(c).send(new GetTagKeysCommand({}));
-  return (result.TagKeys ?? []).filter((k): k is string => Boolean(k));
 }

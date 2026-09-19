@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionId } from "@/lib/session";
 import { getAwsCredentials } from "@/lib/session-store";
-import { listAwsResources, listAwsTagKeys } from "@/lib/providers/aws";
+import { listAwsResources } from "@/lib/providers/aws";
 import { jsonError, handleRouteError } from "@/lib/api-utils";
 
 export async function GET(req: NextRequest) {
@@ -22,9 +22,7 @@ export async function GET(req: NextRequest) {
       tagFilters: tagKey ? [{ Key: tagKey, Values: tagValue ? [tagValue] : undefined }] : undefined,
     });
 
-    const tagKeys = await listAwsTagKeys(creds).catch(() => []);
-
-    return NextResponse.json({ resources, nextToken: newToken, tagKeys });
+    return NextResponse.json({ resources, nextToken: newToken });
   } catch (err) {
     return handleRouteError(err);
   }

@@ -60,9 +60,7 @@ export function listAwsResources(params: { tagKey?: string; tagValue?: string; n
   if (params.tagKey) qs.set("tagKey", params.tagKey);
   if (params.tagValue) qs.set("tagValue", params.tagValue);
   if (params.nextToken) qs.set("nextToken", params.nextToken);
-  return request<{ resources: CloudResource[]; nextToken?: string; tagKeys: string[] }>(
-    `/api/aws/resources?${qs.toString()}`
-  );
+  return request<{ resources: CloudResource[]; nextToken?: string }>(`/api/aws/resources?${qs.toString()}`);
 }
 
 export function tagAwsResources(resourceArns: string[], tags: TagMap) {

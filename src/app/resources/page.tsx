@@ -37,20 +37,31 @@ export default function ResourcesPage() {
       const s = await getSessionStatus();
       setStatus(s);
 
+      const [awsResult, gcpResult] = await Promise.all([
+        s.aws
+          ? listAwsResources().catch((err) => {
+              push({ kind: "error", title: "Could not load AWS resources", description: (err as Error).message });
+              return null;
+            })
+          : null,
+        s.gcp
+          ? listGcpResources().catch((err) => {
+              push({ kind: "error", title: "Could not load GCP resources", description: (err as Error).message });
+              return null;
+            })
+          : null,
+      ]);
+
       const results: CloudResource[] = [];
-      if (s.aws) {
-        const r = await listAwsResources();
-        results.push(...r.resources);
-        setAwsNextToken(r.nextToken);
+      if (awsResult) {
+        results.push(...awsResult.resources);
+        setAwsNextToken(awsResult.nextToken);
       }
-      if (s.gcp) {
-        const r = await listGcpResources();
-        results.push(...r.resources);
-        setGcpNextToken(r.nextPageToken);
+      if (gcpResult) {
+        results.push(...gcpResult.resources);
+        setGcpNextToken(gcpResult.nextPageToken);
       }
       setResources(results);
-    } catch (err) {
-      push({ kind: "error", title: "Could not load resources", description: (err as Error).message });
     } finally {
       setLoading(false);
     }
@@ -66,16 +77,19 @@ export default function ResourcesPage() {
   async function loadMore() {
     setLoadingMore(true);
     try {
+      const [awsResult, gcpResult] = await Promise.all([
+        awsNextToken ? listAwsResources({ nextToken: awsNextToken }) : null,
+        gcpNextToken ? listGcpResources({ pageToken: gcpNextToken }) : null,
+      ]);
+
       const additions: CloudResource[] = [];
-      if (awsNextToken) {
-        const r = await listAwsResources({ nextToken: awsNextToken });
-        additions.push(...r.resources);
-        setAwsNextToken(r.nextToken);
+      if (awsResult) {
+        additions.push(...awsResult.resources);
+        setAwsNextToken(awsResult.nextToken);
       }
-      if (gcpNextToken) {
-        const r = await listGcpResources({ pageToken: gcpNextToken });
-        additions.push(...r.resources);
-        setGcpNextToken(r.nextPageToken);
+      if (gcpResult) {
+        additions.push(...gcpResult.resources);
+        setGcpNextToken(gcpResult.nextPageToken);
       }
       setResources((prev) => [...prev, ...additions]);
     } finally {

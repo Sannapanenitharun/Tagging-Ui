@@ -39,15 +39,15 @@ export default function DashboardPage() {
     (async () => {
       const s = await getSessionStatus();
       setStatus(s);
+
+      const [awsResult, gcpResult] = await Promise.all([
+        s.aws ? listAwsResources().catch(() => ({ resources: [] as CloudResource[] })) : null,
+        s.gcp ? listGcpResources().catch(() => ({ resources: [] as CloudResource[] })) : null,
+      ]);
+
       const next: Record<string, Stats> = {};
-      if (s.aws) {
-        const r = await listAwsResources().catch(() => ({ resources: [] as CloudResource[] }));
-        next.aws = computeStats(r.resources);
-      }
-      if (s.gcp) {
-        const r = await listGcpResources().catch(() => ({ resources: [] as CloudResource[] }));
-        next.gcp = computeStats(r.resources);
-      }
+      if (awsResult) next.aws = computeStats(awsResult.resources);
+      if (gcpResult) next.gcp = computeStats(gcpResult.resources);
       setStats(next);
       setLoading(false);
     })();
