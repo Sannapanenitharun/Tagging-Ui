@@ -5,7 +5,7 @@ import { Button } from "./ui/Button";
 import { Field, Input } from "./ui/Input";
 import { useToast } from "./ui/Toast";
 import { connectAws, ApiRequestError } from "@/lib/api-client";
-import { AWS_REGIONS } from "@/lib/providers/aws";
+import { AWS_REGIONS } from "@/lib/aws-regions";
 import type { AwsConnectionSummary } from "@/lib/types";
 
 export function AwsConnectForm({ onConnected }: { onConnected: (summary: AwsConnectionSummary) => void }) {
