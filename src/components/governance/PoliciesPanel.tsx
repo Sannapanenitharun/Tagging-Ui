@@ -3,15 +3,11 @@
 import { useState } from "react";
 import { Button } from "../ui/Button";
 import { Field, Input } from "../ui/Input";
+import { parseValueList } from "@/lib/csv";
 import { saveGovernanceConfig, newId } from "@/lib/governance-store";
 import type { GovernanceConfig } from "@/lib/governance";
 import type { Provider } from "@/lib/types";
 
-const csv = (s: string) =>
-  s
-    .split(",")
-    .map((x) => x.trim())
-    .filter(Boolean);
 
 export function PoliciesPanel({ config }: { config: GovernanceConfig }) {
   const [key, setKey] = useState("");
@@ -23,11 +19,17 @@ export function PoliciesPanel({ config }: { config: GovernanceConfig }) {
     if (!k) return;
     saveGovernanceConfig({
       ...config,
-      policies: [...config.policies, { id: newId(), key: k, allowedValues: csv(values), providers }],
+      policies: [...config.policies, { id: newId(), key: k, allowedValues: parseValueList(values), providers }],
     });
     setKey("");
     setValues("");
     setProviders([]);
+  }
+
+  async function importValues(file: File | undefined) {
+    if (!file) return;
+    const merged = parseValueList(`${values},${await file.text()}`);
+    setValues(merged.join(", "));
   }
 
   function remove(id: string) {
@@ -52,6 +54,18 @@ export function PoliciesPanel({ config }: { config: GovernanceConfig }) {
           </Field>
           <Field label="Allowed values (optional, comma separated)">
             <Input value={values} onChange={(e) => setValues(e.target.value)} placeholder="prod, staging, dev" />
+            <label className="mt-1 inline-block cursor-pointer text-xs font-medium text-[var(--primary)] hover:underline">
+              Import from .csv / .txt
+              <input
+                type="file"
+                accept=".csv,.txt,text/csv,text/plain"
+                className="sr-only"
+                onChange={(e) => {
+                  void importValues(e.target.files?.[0]);
+                  e.target.value = "";
+                }}
+              />
+            </label>
           </Field>
         </div>
         <div className="flex items-center justify-between">

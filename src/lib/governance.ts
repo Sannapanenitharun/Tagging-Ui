@@ -1,4 +1,5 @@
 import type { CloudResource, Provider, TagMap } from "./types";
+import { maxTagsPerResource, validateSingleTag } from "./validation";
 
 export type ConditionField = "name" | "type" | "location" | "provider" | "tag";
 export type ConditionOp = "equals" | "contains" | "startsWith" | "exists" | "missing";
@@ -119,6 +120,50 @@ export function virtualTagsFor(resource: CloudResource, config: GovernanceConfig
     if (t.source === "virtual") out[k] = t.value;
   }
   return out;
+}
+
+export interface MaterializationPlan {
+  /** Resources the tag can actually be written to. */
+  writable: CloudResource[];
+  /** Matching resources that will be left alone, with the reason. */
+  skipped: { resource: CloudResource; reason: string }[];
+}
+
+/**
+ * Works out what "apply as real tags" would do, without touching the cloud.
+ * A resource is a candidate when the rule matches and it doesn't already carry the
+ * key natively (alias-aware). Candidates are skipped, not failed, when the write
+ * can't succeed: read-only, invalid for that cloud, or already at the tag limit.
+ */
+export function planMaterialization(
+  rule: VirtualTagRule,
+  resources: CloudResource[],
+  aliases: TagAlias[]
+): MaterializationPlan {
+  const ck = canonicalKey(rule.key, aliases).toLowerCase();
+  const plan: MaterializationPlan = { writable: [], skipped: [] };
+
+  for (const resource of resources) {
+    if (!ruleMatches(rule, resource, aliases)) continue;
+    if (Object.keys(resource.tags).some((k) => canonicalKey(k, aliases).toLowerCase() === ck)) continue;
+
+    if (!resource.taggable) {
+      plan.skipped.push({ resource, reason: resource.readOnlyReason ?? "Read-only resource" });
+      continue;
+    }
+    const check = validateSingleTag(resource.provider, rule.key, rule.value);
+    if (!check.valid) {
+      plan.skipped.push({ resource, reason: check.errors[0]?.message ?? "Invalid tag for this cloud" });
+      continue;
+    }
+    const max = maxTagsPerResource(resource.provider);
+    if (Object.keys(resource.tags).length >= max) {
+      plan.skipped.push({ resource, reason: `Already at the ${max}-tag limit` });
+      continue;
+    }
+    plan.writable.push(resource);
+  }
+  return plan;
 }
 
 export interface Violation {

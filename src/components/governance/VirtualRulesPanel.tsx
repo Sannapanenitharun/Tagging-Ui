@@ -3,19 +3,20 @@
 import { useState } from "react";
 import { Button } from "../ui/Button";
 import { Field, Input } from "../ui/Input";
+import { Modal } from "../ui/Modal";
 import { useToast } from "../ui/Toast";
 import { saveGovernanceConfig, newId } from "@/lib/governance-store";
 import {
-  canonicalKey,
+  planMaterialization,
   ruleMatches,
   type Condition,
   type ConditionField,
   type ConditionOp,
   type GovernanceConfig,
+  type MaterializationPlan,
   type VirtualTagRule,
 } from "@/lib/governance";
 import { applyTagsToResources, combinedFailures } from "@/lib/resource-actions";
-import { validateSingleTag } from "@/lib/validation";
 import type { CloudResource } from "@/lib/types";
 
 const FIELDS: ConditionField[] = ["name", "type", "location", "provider", "tag"];
@@ -38,6 +39,7 @@ export function VirtualRulesPanel({
   const [value, setValue] = useState("");
   const [conditions, setConditions] = useState<Condition[]>([blankCondition()]);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [preview, setPreview] = useState<{ rule: VirtualTagRule; plan: MaterializationPlan } | null>(null);
   const { push } = useToast();
 
   const validConditions = conditions.every((c) => c.op === "exists" || c.op === "missing" || c.value.trim() !== "");
@@ -60,35 +62,31 @@ export function VirtualRulesPanel({
     setConditions([blankCondition()]);
   }
 
-  /** Resources matching the rule that don't already natively carry the key (alias-aware). */
-  function pending(rule: VirtualTagRule) {
-    const ck = canonicalKey(rule.key, config.aliases).toLowerCase();
-    return resources.filter(
-      (r) =>
-        ruleMatches(rule, r, config.aliases) &&
-        !Object.keys(r.tags).some((k) => canonicalKey(k, config.aliases).toLowerCase() === ck)
-    );
-  }
-
-  async function materialize(rule: VirtualTagRule) {
-    const candidates = pending(rule);
-    const writable = candidates.filter((r) => r.taggable && validateSingleTag(r.provider, rule.key, rule.value).valid);
-    const skipped = candidates.length - writable.length;
-    if (writable.length === 0) {
+  function openPreview(rule: VirtualTagRule) {
+    const plan = planMaterialization(rule, resources, config.aliases);
+    if (plan.writable.length === 0) {
       push({
         kind: "info",
         title: "Nothing to write",
-        description: skipped
-          ? `${skipped} matching resource(s) are read-only or the value isn't valid for that cloud.`
+        description: plan.skipped.length
+          ? `${plan.skipped.length} matching resource(s) are read-only or the value isn't valid for that cloud.`
           : "Every matching resource already has this tag.",
       });
       return;
     }
+    setPreview({ rule, plan });
+  }
+
+  async function confirmWrite() {
+    if (!preview) return;
+    const { rule, plan } = preview;
+    const skipped = plan.skipped.length;
+    setPreview(null);
     setBusyId(rule.id);
     try {
-      const result = await applyTagsToResources(writable, { [rule.key]: rule.value });
+      const result = await applyTagsToResources(plan.writable, { [rule.key]: rule.value });
       const failed = combinedFailures(result);
-      const ok = writable.length - failed.length;
+      const ok = plan.writable.length - failed.length;
       push({
         kind: failed.length ? "error" : "success",
         title: `Wrote ${rule.key}=${rule.value} to ${ok} resource(s)`,
@@ -186,7 +184,7 @@ export function VirtualRulesPanel({
         <ul className="divide-y divide-[var(--border)] rounded-lg bg-[var(--surface)] ring-1 ring-inset ring-[var(--border)]">
           {config.rules.map((rule) => {
             const matched = resources.filter((r) => ruleMatches(rule, r, config.aliases)).length;
-            const toWrite = pending(rule).length;
+            const toWrite = planMaterialization(rule, resources, config.aliases).writable.length;
             return (
               <li key={rule.id} className="flex items-start justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
@@ -206,7 +204,7 @@ export function VirtualRulesPanel({
                       .join(" AND ")}
                   </p>
                   <p className="mt-0.5 text-xs text-[var(--muted)]">
-                    Matches {matched} loaded resource(s); {toWrite} not yet tagged for real.
+                    Matches {matched} loaded resource(s); {toWrite} can be written as real tags.
                   </p>
                 </div>
                 <div className="flex shrink-0 gap-1">
@@ -214,9 +212,9 @@ export function VirtualRulesPanel({
                     size="sm"
                     variant="secondary"
                     disabled={busyId === rule.id || toWrite === 0}
-                    onClick={() => materialize(rule)}
+                    onClick={() => openPreview(rule)}
                   >
-                    {busyId === rule.id ? "Writing..." : "Apply as real tags"}
+                    {busyId === rule.id ? "Writing..." : "Preview & apply"}
                   </Button>
                   <Button
                     size="sm"
@@ -231,6 +229,48 @@ export function VirtualRulesPanel({
           })}
         </ul>
       )}
+      <Modal open={preview !== null} onClose={() => setPreview(null)} title="Review before writing to the cloud">
+        {preview && (
+          <div className="space-y-3">
+            <p className="text-sm text-[var(--foreground)]">
+              This will add <span className="font-mono">{preview.rule.key}={preview.rule.value}</span> to{" "}
+              <strong>{preview.plan.writable.length}</strong> resource(s). Nothing changes until you confirm.
+            </p>
+            <ul className="max-h-40 space-y-1 overflow-y-auto rounded-md bg-[var(--surface-hover)] p-2 text-xs">
+              {preview.plan.writable.map((r) => (
+                <li key={r.id} className="flex justify-between gap-2">
+                  <span className="truncate text-[var(--foreground)]">{r.name}</span>
+                  <span className="shrink-0 text-[var(--muted)]">
+                    {r.provider.toUpperCase()} · {r.resourceType}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {preview.plan.skipped.length > 0 && (
+              <div>
+                <p className="mb-1 text-xs font-medium text-[var(--warning)]">
+                  {preview.plan.skipped.length} will be skipped
+                </p>
+                <ul className="max-h-32 space-y-1 overflow-y-auto text-xs text-[var(--muted)]">
+                  {preview.plan.skipped.map(({ resource, reason }) => (
+                    <li key={resource.id}>
+                      <span className="text-[var(--foreground)]">{resource.name}</span>: {reason}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="ghost" size="sm" onClick={() => setPreview(null)}>
+                Cancel
+              </Button>
+              <Button variant="primary" size="sm" onClick={confirmWrite}>
+                Write {preview.plan.writable.length} tag(s)
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

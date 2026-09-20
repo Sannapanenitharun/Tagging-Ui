@@ -124,9 +124,25 @@ tagging-only: nothing here reads cost data.
   policies, rules, and compliance treat differently-spelled keys as one.
   Only affects how this console reads tags; nothing is renamed in the cloud.
 
+"Apply as real tags" opens a **preview first**: it lists what will be written and
+what will be skipped and why (read-only resource, value invalid for that cloud,
+resource already at the provider's tag limit). Nothing is written until you
+confirm. The Compliance tab can **export offenders to CSV** (formula-injection
+safe), and approved values can be imported from a `.csv`/`.txt` list.
+
 Policies, rules, and aliases are stored in this browser's `localStorage`
 (`src/lib/governance-store.ts`), so they are per-browser, not shared across
 users. Compliance is computed over the resources loaded (first page per cloud).
+
+## Tests
+
+```bash
+npm test
+```
+
+Unit tests cover the governance engine (alias normalization, virtual-tag
+precedence, compliance scoring, write planning) and CSV handling. They run
+against pure functions, so no cloud credentials are needed.
 
 ## Required permissions
 

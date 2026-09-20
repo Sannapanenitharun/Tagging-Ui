@@ -18,6 +18,11 @@ const GCP_KEY_RE = /^[a-z][a-z0-9_-]*$/;
 const GCP_VALUE_RE = /^[a-z0-9_-]*$/;
 const GCP_MAX_LABELS = 64;
 
+/** Provider limit on tags/labels per resource. */
+export function maxTagsPerResource(provider: Provider): number {
+  return provider === "aws" ? AWS_MAX_TAGS : GCP_MAX_LABELS;
+}
+
 export function validateTagSet(provider: Provider, tags: TagMap): TagValidationResult {
   const errors: TagValidationResult["errors"] = [];
   const keys = Object.keys(tags);

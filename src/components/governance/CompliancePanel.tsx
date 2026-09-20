@@ -2,6 +2,9 @@
 
 import { useMemo } from "react";
 import { ProviderBadge } from "../ProviderBadge";
+import { Button } from "../ui/Button";
+import { nonCompliantCsv } from "@/lib/compliance-export";
+import { downloadTextFile } from "@/lib/csv";
 import { summarizeCompliance, type GovernanceConfig } from "@/lib/governance";
 import type { CloudResource } from "@/lib/types";
 
@@ -98,9 +101,17 @@ export function CompliancePanel({ resources, config }: { resources: CloudResourc
       </div>
 
       <section className="rounded-lg bg-[var(--surface)] ring-1 ring-inset ring-[var(--border)]">
-        <h3 className="border-b border-[var(--border)] px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
-          Non-compliant resources
-        </h3>
+        <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Non-compliant resources</h3>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={s.nonCompliant.length === 0}
+            onClick={() => downloadTextFile("non-compliant-resources.csv", nonCompliantCsv(s))}
+          >
+            Export CSV
+          </Button>
+        </div>
         {s.nonCompliant.length === 0 ? (
           <p className="p-4 text-sm text-[var(--muted)]">Every loaded resource satisfies your required tags.</p>
         ) : (
