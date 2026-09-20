@@ -2,19 +2,22 @@
 
 import { ProviderBadge } from "./ProviderBadge";
 import { TagPill } from "./TagPill";
-import type { CloudResource } from "@/lib/types";
+import type { CloudResource, TagMap } from "@/lib/types";
 
 const VISIBLE_TAGS = 3;
 
 export function ResourceTable({
   resources,
   selected,
+  virtual = {},
   onToggle,
   onToggleAll,
   onEdit,
 }: {
   resources: CloudResource[];
   selected: Set<string>;
+  /** Virtual (rule-derived) tags by resource id; shown after native tags. */
+  virtual?: Record<string, TagMap>;
   onToggle: (id: string) => void;
   onToggleAll: () => void;
   onEdit: (resource: CloudResource) => void;
@@ -43,7 +46,11 @@ export function ResourceTable({
         </thead>
         <tbody>
           {resources.map((r) => {
-            const entries = Object.entries(r.tags);
+            const virt = Object.entries(virtual[r.id] ?? {});
+            const entries: [string, string, boolean][] = [
+              ...Object.entries(r.tags).map(([k, v]): [string, string, boolean] => [k, v, false]),
+              ...virt.map(([k, v]): [string, string, boolean] => [k, v, true]),
+            ];
             const shown = entries.slice(0, VISIBLE_TAGS);
             const overflow = entries.length - shown.length;
             return (
@@ -66,7 +73,7 @@ export function ResourceTable({
                   <p className="mt-1 truncate font-medium text-[var(--foreground)]" title={r.name}>
                     {r.name}
                   </p>
-                  {entries.length === 0 && (
+                  {Object.keys(r.tags).length === 0 && (
                     <span className="text-xs font-medium text-[var(--warning)]">Untagged</span>
                   )}
                 </td>
@@ -74,8 +81,8 @@ export function ResourceTable({
                 <td className="px-3 py-2 align-top text-[var(--muted)]">{r.location}</td>
                 <td className="max-w-[320px] px-3 py-2 align-top">
                   <div className="flex flex-wrap gap-1">
-                    {shown.map(([k, v]) => (
-                      <TagPill key={k} tagKey={k} value={v} />
+                    {shown.map(([k, v, isVirtual]) => (
+                      <TagPill key={`${isVirtual ? "v:" : ""}${k}`} tagKey={k} value={v} virtual={isVirtual} />
                     ))}
                     {overflow > 0 && (
                       <span className="self-center text-xs text-[var(--muted)]">+{overflow} more</span>

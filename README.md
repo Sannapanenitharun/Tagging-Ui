@@ -103,6 +103,31 @@ keys, 256-char values, 50 tags/resource, reserved `aws:` prefix; GCP: 63-char
 lowercase-only keys/values, 64 labels/resource) so invalid input is rejected
 in the UI before a request round-trips to the provider and fails there.
 
+## Tag governance
+
+The **Governance** page adds the tagging practices common to FinOps platforms
+(CloudHealth, Vantage, CloudZero, Finout, Yotascale, Harness CCM). It is
+tagging-only: nothing here reads cost data.
+
+- **Required tags**: per-key policies (optional allowed values, optional
+  per-cloud scope). The **Compliance** tab scores every loaded resource and
+  breaks the result down by tag, cloud, and resource type, and lists offenders.
+  The Tagging view gets a "Non-compliant only" filter.
+- **Virtual tags**: rules (`name contains "payments"`, `tag env equals prod`, ...
+  all conditions must match) that derive a tag without changing the cloud.
+  They render dashed in the Tagging view, are searchable, and count toward
+  compliance. "Apply as real tags" writes a rule's result to AWS/GCP in bulk,
+  skipping read-only resources and values invalid for that cloud. This is the
+  same idea as Vantage/Finout virtual tags and CloudZero dimensions, scoped to
+  tag keys.
+- **Normalization**: alias mappings (`env`, `Env`, `stage` -> `environment`) so
+  policies, rules, and compliance treat differently-spelled keys as one.
+  Only affects how this console reads tags; nothing is renamed in the cloud.
+
+Policies, rules, and aliases are stored in this browser's `localStorage`
+(`src/lib/governance-store.ts`), so they are per-browser, not shared across
+users. Compliance is computed over the resources loaded (first page per cloud).
+
 ## Required permissions
 
 **AWS** — attach a policy like:

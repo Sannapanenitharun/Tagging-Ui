@@ -11,9 +11,13 @@ import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { useToast } from "@/components/ui/Toast";
 import { getSessionStatus, listAwsResources, listGcpResources } from "@/lib/api-client";
-import type { CloudResource, SessionStatus } from "@/lib/types";
+import { evaluateResource, virtualTagsFor } from "@/lib/governance";
+import { useGovernanceConfig } from "@/lib/governance-store";
+import type { CloudResource, SessionStatus, TagMap } from "@/lib/types";
 
 export default function ResourcesPage() {
+  const governance = useGovernanceConfig();
+  const [nonCompliantOnly, setNonCompliantOnly] = useState(false);
   const [status, setStatus] = useState<SessionStatus | null>(null);
   const [resources, setResources] = useState<CloudResource[]>([]);
   const [awsNextToken, setAwsNextToken] = useState<string | undefined>();
@@ -97,17 +101,32 @@ export default function ResourcesPage() {
     }
   }
 
+  const virtualById = useMemo(() => {
+    const out: Record<string, TagMap> = {};
+    for (const r of resources) {
+      const v = virtualTagsFor(r, governance);
+      if (Object.keys(v).length > 0) out[r.id] = v;
+    }
+    return out;
+  }, [resources, governance]);
+
   const filtered = useMemo(() => {
     return resources.filter((r) => {
       if (providerFilter !== "all" && r.provider !== providerFilter) return false;
       if (untaggedOnly && Object.keys(r.tags).length > 0) return false;
+      if (
+        nonCompliantOnly &&
+        governance.policies.length > 0 &&
+        evaluateResource(r, governance).violations.length === 0
+      )
+        return false;
       if (search.trim()) {
         const needle = search.trim().toLowerCase();
         const haystack = [
           r.name,
           r.resourceType,
           r.location,
-          ...Object.entries(r.tags).flatMap(([k, v]) => [k, v]),
+          ...Object.entries({ ...r.tags, ...(virtualById[r.id] ?? {}) }).flatMap(([k, v]) => [k, v]),
         ]
           .join(" ")
           .toLowerCase();
@@ -115,7 +134,7 @@ export default function ResourcesPage() {
       }
       return true;
     });
-  }, [resources, providerFilter, untaggedOnly, search]);
+  }, [resources, providerFilter, untaggedOnly, nonCompliantOnly, governance, virtualById, search]);
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -177,6 +196,8 @@ export default function ResourcesPage() {
         onProviderFilterChange={setProviderFilter}
         untaggedOnly={untaggedOnly}
         onUntaggedOnlyChange={setUntaggedOnly}
+        nonCompliantOnly={nonCompliantOnly}
+        onNonCompliantOnlyChange={governance.policies.length > 0 ? setNonCompliantOnly : undefined}
         resultCount={filtered.length}
       />
 
@@ -192,6 +213,7 @@ export default function ResourcesPage() {
         <ResourceTable
           resources={filtered}
           selected={selected}
+          virtual={virtualById}
           onToggle={toggle}
           onToggleAll={toggleAll}
           onEdit={setEditing}

@@ -13,6 +13,8 @@ export function FilterBar({
   onProviderFilterChange,
   untaggedOnly,
   onUntaggedOnlyChange,
+  nonCompliantOnly,
+  onNonCompliantOnlyChange,
   resultCount,
 }: {
   search: string;
@@ -21,6 +23,9 @@ export function FilterBar({
   onProviderFilterChange: (v: ProviderFilter) => void;
   untaggedOnly: boolean;
   onUntaggedOnlyChange: (v: boolean) => void;
+  /** Only rendered when a handler is provided (i.e. required-tag policies exist). */
+  nonCompliantOnly?: boolean;
+  onNonCompliantOnlyChange?: (v: boolean) => void;
   resultCount: number;
 }) {
   const tabs: { value: ProviderFilter; label: string }[] = [
@@ -65,6 +70,17 @@ export function FilterBar({
         />
         Untagged only
       </label>
+
+      {onNonCompliantOnlyChange && (
+        <label className="flex items-center gap-1.5 text-xs font-medium text-[var(--muted)]">
+          <input
+            type="checkbox"
+            checked={Boolean(nonCompliantOnly)}
+            onChange={(e) => onNonCompliantOnlyChange(e.target.checked)}
+          />
+          Non-compliant only
+        </label>
+      )}
 
       <span className="text-xs text-[var(--muted)]">{resultCount} resource(s)</span>
     </div>
